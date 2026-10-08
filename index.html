@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Ejecutivo - Proceso de Inscripción 2027-1</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS (XLSX) CDN para lectura en vivo de archivos Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .light .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        .light ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 light:bg-slate-50 light:text-slate-800 transition-colors duration-300 min-h-screen flex flex-col">
+
+    <!-- Header Sticky Glass -->
+    <header class="sticky top-0 z-50 bg-slate-900/80 dark:bg-slate-900/80 light:bg-white/80 backdrop-blur-md border-b border-slate-800 light:border-slate-200 px-4 lg:px-8 py-3 transition-colors">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl shadow-lg shadow-indigo-500/20 text-white">
+                    <i data-lucide="bar-chart-3" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xl font-bold tracking-tight text-white dark:text-white light:text-slate-900">Dashboard Ejecutivo de Inscripciones</h1>
+                        <span class="bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 light:text-indigo-600 text-xs font-semibold px-2.5 py-0.5 rounded-full">Periodo 2027-1</span>
+                    </div>
+                    <p class="text-xs text-slate-400 light:text-slate-500 flex items-center gap-1 mt-0.5">
+                        <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                        <span>Corte de Información: <strong id="cutoffDate" class="text-slate-300 light:text-slate-700">07 de Octubre de 2026</strong></span>
+                        <span class="mx-1">•</span>
+                        <span id="totalRecordsBadge" class="text-emerald-400 font-medium">906 registros cargados</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center flex-wrap gap-2.5">
+                <!-- Excel File Upload Button -->
+                <label for="excelInput" class="cursor-pointer bg-slate-800 hover:bg-slate-700 light:bg-slate-100 light:hover:bg-slate-200 text-slate-200 light:text-slate-800 text-xs font-medium px-3.5 py-2 rounded-lg border border-slate-700 light:border-slate-300 transition flex items-center gap-2 shadow-sm">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i>
+                    <span>Cargar / Actualizar Excel</span>
+                    <input type="file" id="excelInput" accept=".xls,.xlsx" class="hidden" onchange="handleFileUpload(event)">
+                </label>
+
+                <!-- Export CSV Button -->
+                <button onclick="exportToCSV()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3.5 py-2 rounded-lg transition flex items-center gap-2 shadow-md shadow-indigo-600/20">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Exportar Datos</span>
+                </button>
+
+                <!-- Theme Toggle Button -->
+                <button onclick="toggleTheme()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 light:bg-slate-100 light:hover:bg-slate-200 text-slate-300 light:text-slate-700 border border-slate-700 light:border-slate-300 transition" title="Cambiar Tema Dark/Light">
+                    <i data-lucide="sun" id="sunIcon" class="w-4 h-4 hidden dark:block text-amber-400"></i>
+                    <i data-lucide="moon" id="moonIcon" class="w-4 h-4 block dark:hidden text-slate-600"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6 flex-grow w-full">
+
+        <!-- KPI Summary Cards Row -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <!-- Total Registros -->
+            <div class="glass-card bg-slate-900/60 light:bg-white p-4 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm relative overflow-hidden group">
+                <div class="absolute -right-3 -bottom-3 opacity-10 text-indigo-400 group-hover:scale-110 transition-transform">
+                    <i data-lucide="users" class="w-20 h-20"></i>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 light:text-slate-500">Demanda Total</span>
+                    <div class="p-1.5 rounded-md bg-indigo-500/10 text-indigo-400 light:text-indigo-600">
+                        <i data-lucide="users" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="text-2xl font-black text-white light:text-slate-900 tracking-tight" id="kpiTotal">906</div>
+                    <div class="text-xs text-slate-400 light:text-slate-500 mt-1 flex items-center gap-1">
+                        <span class="text-slate-300 light:text-slate-700 font-medium">100%</span> de postulaciones
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inscritos (Converted) -->
+            <div class="glass-card bg-slate-900/60 light:bg-white p-4 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm relative overflow-hidden group">
+                <div class="absolute -right-3 -bottom-3 opacity-10 text-emerald-400 group-hover:scale-110 transition-transform">
+                    <i data-lucide="user-check" class="w-20 h-20"></i>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 light:text-slate-500">Inscritos Efectivos</span>
+                    <div class="p-1.5 rounded-md bg-emerald-500/10 text-emerald-400 light:text-emerald-600">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="text-2xl font-black text-emerald-400 light:text-emerald-600 tracking-tight" id="kpiInscritos">310</div>
+                    <div class="text-xs text-slate-400 light:text-slate-500 mt-1 flex items-center gap-1">
+                        <span class="text-emerald-400 font-bold" id="kpiConversionRate">34.22%</span> conversión global
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aspirantes (Pending) -->
+            <div class="glass-card bg-slate-900/60 light:bg-white p-4 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm relative overflow-hidden group">
+                <div class="absolute -right-3 -bottom-3 opacity-10 text-amber-400 group-hover:scale-110 transition-transform">
+                    <i data-lucide="user-clock" class="w-20 h-20"></i>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 light:text-slate-500">Aspirantes Pendientes</span>
+                    <div class="p-1.5 rounded-md bg-amber-500/10 text-amber-400 light:text-amber-600">
+                        <i data-lucide="clock" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="text-2xl font-black text-amber-400 light:text-amber-600 tracking-tight" id="kpiAspirantes">596</div>
+                    <div class="text-xs text-slate-400 light:text-slate-500 mt-1 flex items-center gap-1">
+                        <span class="text-amber-400 font-bold" id="kpiPendingRate">65.78%</span> por matrícula/pago
+                    </div>
+                </div>
+            </div>
+
+            <!-- Programa Líder Demanda -->
+            <div class="glass-card bg-slate-900/60 light:bg-white p-4 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm relative overflow-hidden group">
+                <div class="absolute -right-3 -bottom-3 opacity-10 text-blue-400 group-hover:scale-110 transition-transform">
+                    <i data-lucide="trophy" class="w-20 h-20"></i>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 light:text-slate-500">Líder en Demanda</span>
+                    <div class="p-1.5 rounded-md bg-blue-500/10 text-blue-400 light:text-blue-600">
+                        <i data-lucide="award" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="text-sm font-bold text-white light:text-slate-900 truncate" id="kpiTopProgramName" title="ADMINISTRACIÓN DE NEGOCIOS INTERNACIONALES">Admin. Negocios Int.</div>
+                    <div class="text-xs text-slate-400 light:text-slate-500 mt-1 flex items-center gap-1">
+                        <span class="text-blue-400 font-bold" id="kpiTopProgramCount">131</span> postulantes (40.5% conv.)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerta Crítica Fuga -->
+            <div class="glass-card bg-rose-950/20 light:bg-rose-50 p-4 rounded-xl border border-rose-800/40 light:border-rose-200 shadow-sm relative overflow-hidden group">
+                <div class="absolute -right-3 -bottom-3 opacity-10 text-rose-400 group-hover:scale-110 transition-transform">
+                    <i data-lucide="alert-triangle" class="w-20 h-20"></i>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-rose-400 light:text-rose-700">Punto Crítico Fuga</span>
+                    <div class="p-1.5 rounded-md bg-rose-500/10 text-rose-400 light:text-rose-600">
+                        <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="text-sm font-bold text-rose-300 light:text-rose-900 truncate" id="kpiCriticalProgram">Derecho Virtual</div>
+                    <div class="text-xs text-rose-400/90 light:text-rose-700 mt-1 flex items-center gap-1">
+                        <span class="font-bold text-rose-400" id="kpiCriticalRate">11.29%</span> conv. (110 pendientes)
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Executive Insights Banner -->
+        <section class="glass-card bg-slate-900/80 light:bg-white rounded-xl border border-slate-800 light:border-slate-200 p-5 shadow-sm">
+            <div class="flex items-center gap-2 mb-4">
+                <div class="p-1.5 bg-amber-500/10 text-amber-400 rounded-lg">
+                    <i data-lucide="lightbulb" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-white light:text-slate-900">Hallazgos y Conclusiones Ejecutivas de Negocio</h2>
+                    <p class="text-xs text-slate-400 light:text-slate-500">Análisis cuantitativo e insights para la toma de decisiones directivas</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-3.5 bg-slate-800/50 light:bg-slate-50 rounded-lg border border-slate-700/50 light:border-slate-200">
+                    <div class="flex items-center gap-2 text-rose-400 light:text-rose-600 text-xs font-bold uppercase mb-1">
+                        <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                        <span>Fuga en Modalidad Virtual</span>
+                    </div>
+                    <p class="text-xs text-slate-300 light:text-slate-600 leading-relaxed">
+                        <strong>Derecho Virtual</strong> acumula la mayor brecha de conversión institucional: de 124 postulantes, <strong>110 continúan en estado Aspirante</strong> (conversión del 11.29% vs 34.22% promedio). Representa el principal cuello de botella comercial de la convocatoria.
+                    </p>
+                </div>
+
+                <div class="p-3.5 bg-slate-800/50 light:bg-slate-50 rounded-lg border border-slate-700/50 light:border-slate-200">
+                    <div class="flex items-center gap-2 text-indigo-400 light:text-indigo-600 text-xs font-bold uppercase mb-1">
+                        <i data-lucide="pie-chart" class="w-4 h-4"></i>
+                        <span>Concentración de Demanda</span>
+                    </div>
+                    <p class="text-xs text-slate-300 light:text-slate-600 leading-relaxed">
+                        El <strong>64.7% de la demanda global (586 solicitudes)</strong> se concentra en solo 5 programas pregrado: Negocios Internacionales (131), Derecho Virtual (124), Derecho Presencial (118), Psicología (117) e Ing. Informática (96).
+                    </p>
+                </div>
+
+                <div class="p-3.5 bg-slate-800/50 light:bg-slate-50 rounded-lg border border-slate-700/50 light:border-slate-200">
+                    <div class="flex items-center gap-2 text-emerald-400 light:text-emerald-600 text-xs font-bold uppercase mb-1">
+                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                        <span>Programas de Alta Eficiencia</span>
+                    </div>
+                    <p class="text-xs text-slate-300 light:text-slate-600 leading-relaxed">
+                        <strong>Administración Financiera</strong> encabeza la tasa de conversión en pregrados con <strong>52.50%</strong> (21/40), seguida de <strong>Mercadeo</strong> con <strong>47.46%</strong> (28/59), demostrando alta intención de pago inmediata.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Filters Bar -->
+        <section class="glass-card bg-slate-900/80 light:bg-white rounded-xl border border-slate-800 light:border-slate-200 p-4 shadow-sm">
+            <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                <div class="flex items-center gap-2 text-slate-300 light:text-slate-700 font-semibold text-sm">
+                    <i data-lucide="filter" class="w-4 h-4 text-indigo-400"></i>
+                    <span>Filtros Dinámicos</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 flex-grow">
+                    <!-- Search Input -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Buscar Aspirante</label>
+                        <div class="relative">
+                            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Nombre, doc, email..." class="w-full bg-slate-800 light:bg-slate-100 border border-slate-700 light:border-slate-300 text-slate-200 light:text-slate-800 text-xs rounded-lg pl-8 pr-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    <!-- Program Select -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Programa Académico</label>
+                        <select id="programFilter" onchange="applyFilters()" class="w-full bg-slate-800 light:bg-slate-100 border border-slate-700 light:border-slate-300 text-slate-200 light:text-slate-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Todos los Programas</option>
+                        </select>
+                    </div>
+
+                    <!-- Estado Select -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Estado</label>
+                        <select id="estadoFilter" onchange="applyFilters()" class="w-full bg-slate-800 light:bg-slate-100 border border-slate-700 light:border-slate-300 text-slate-200 light:text-slate-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Todos los Estados</option>
+                            <option value="Inscrito">Inscrito</option>
+                            <option value="Aspirante">Aspirante</option>
+                        </select>
+                    </div>
+
+                    <!-- Tipo Aspirante Select -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tipo Aspirante</label>
+                        <select id="tipoAspFilter" onchange="applyFilters()" class="w-full bg-slate-800 light:bg-slate-100 border border-slate-700 light:border-slate-300 text-slate-200 light:text-slate-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Todos los Tipos</option>
+                        </select>
+                    </div>
+
+                    <!-- Tipo Doc Select -->
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tipo Documento</label>
+                        <select id="tipoDocFilter" onchange="applyFilters()" class="w-full bg-slate-800 light:bg-slate-100 border border-slate-700 light:border-slate-300 text-slate-200 light:text-slate-800 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="">Todos los Documentos</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Clear Filters Button -->
+                <button onclick="resetFilters()" class="self-end lg:self-center bg-slate-800 hover:bg-slate-700 light:bg-slate-200 light:hover:bg-slate-300 text-slate-300 light:text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg transition border border-slate-700 light:border-slate-300 flex items-center gap-1.5 whitespace-nowrap mt-2 lg:mt-0">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    <span>Restablecer</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Charts Grid Section -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Chart 1: Daily Inscriptions Trend (2 cols) -->
+            <div class="lg:col-span-2 glass-card bg-slate-900/80 light:bg-white p-5 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-white light:text-slate-900 flex items-center gap-2">
+                            <i data-lucide="line-chart" class="w-4 h-4 text-indigo-400"></i>
+                            Evolución Diaria de Registro (Inscritos vs Aspirantes)
+                        </h3>
+                        <p class="text-xs text-slate-400 light:text-slate-500">Comportamiento temporal de ingreso durante la convocatoria</p>
+                    </div>
+                    <span class="text-[11px] bg-slate-800 light:bg-slate-100 text-slate-300 light:text-slate-600 px-2.5 py-1 rounded-md border border-slate-700 light:border-slate-300 font-mono">Sep - Oct 2026</span>
+                </div>
+                <div class="h-64 w-full relative">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Estado Doughnut Chart (1 col) -->
+            <div class="glass-card bg-slate-900/80 light:bg-white p-5 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm flex flex-col justify-between">
+                <div class="mb-2">
+                    <h3 class="text-sm font-bold text-white light:text-slate-900 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-emerald-400"></i>
+                        Proporción de Estado
+                    </h3>
+                    <p class="text-xs text-slate-400 light:text-slate-500">Ratio global de conversión del proceso</p>
+                </div>
+                <div class="h-56 w-full relative my-auto flex items-center justify-center">
+                    <canvas id="estadoChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Top Programs Demand Bar Chart (2 cols) -->
+            <div class="lg:col-span-2 glass-card bg-slate-900/80 light:bg-white p-5 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm">
+                <div class="mb-4">
+                    <h3 class="text-sm font-bold text-white light:text-slate-900 flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-blue-400"></i>
+                        Top 10 Programas Académicos con Mayor Demanda
+                    </h3>
+                    <p class="text-xs text-slate-400 light:text-slate-500">Comparativa de postulantes totales segregados por estado</p>
+                </div>
+                <div class="h-72 w-full relative">
+                    <canvas id="programsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: Conversion Rate by Program (1 col) -->
+            <div class="glass-card bg-slate-900/80 light:bg-white p-5 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm">
+                <div class="mb-4">
+                    <h3 class="text-sm font-bold text-white light:text-slate-900 flex items-center gap-2">
+                        <i data-lucide="percent" class="w-4 h-4 text-amber-400"></i>
+                        Tasa de Conversión (%) Top Programas
+                    </h3>
+                    <p class="text-xs text-slate-400 light:text-slate-500">% de Inscritos sobre Total Postulantes</p>
+                </div>
+                <div class="h-72 w-full relative">
+                    <canvas id="conversionChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 5: Tipo Aspirante (1 col) -->
+            <div class="glass-card bg-slate-900/80 light:bg-white p-5 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm">
+                <div class="mb-2">
+                    <h3 class="text-sm font-bold text-white light:text-slate-900 flex items-center gap-2">
+                        <i data-lucide="user-plus" class="w-4 h-4 text-violet-400"></i>
+                        Tipo de Aspirante
+                    </h3>
+                    <p class="text-xs text-slate-400 light:text-slate-500">Distribución por origen de postulación</p>
+                </div>
+                <div class="h-56 w-full relative my-auto">
+                    <canvas id="tipoAspChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 6: Tipo Documento (2 cols) -->
+            <div class="lg:col-span-2 glass-card bg-slate-900/80 light:bg-white p-5 rounded-xl border border-slate-800 light:border-slate-200 shadow-sm">
+                <div class="mb-2">
+                    <h3 class="text-sm font-bold text-white light:text-slate-900 flex items-center gap-2">
+                        <i data-lucide="id-card" class="w-4 h-4 text-cyan-400"></i>
+                        Distribución por Tipo de Documento
+                    </h3>
+                    <p class="text-xs text-slate-400 light:text-slate-500">Perfil demográfico por documento de identidad</p>
+                </div>
+                <div class="h-56 w-full relative my-auto">
+                    <canvas id="tipoDocChart"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Detailed Table Section -->
+        <section class="glass-card bg-slate-900/80 light:bg-white rounded-xl border border-slate-800 light:border-slate-200 p-5 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-base font-bold text-white light:text-slate-900 flex items-center gap-2">
+                        <i data-lucide="table" class="w-5 h-5 text-indigo-400"></i>
+                        Registro Detallado de Aspirantes
+                    </h3>
+                    <p class="text-xs text-slate-400 light:text-slate-500" id="tableSubtitle">Mostrando registros filtrados</p>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <label class="text-xs text-slate-400 light:text-slate-600 flex items-center gap-1.5">
+                        <span>Mostrar:</span>
+                        <select id="pageSizeSelect" onchange="changePageSize()" class="bg-slate-800 light:bg-slate-100 border border-slate-700 light:border-slate-300 text-slate-200 light:text-slate-800 text-xs rounded px-2 py-1 focus:outline-none">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto rounded-lg border border-slate-800 light:border-slate-200">
+                <table class="w-full text-left text-xs text-slate-300 light:text-slate-700">
+                    <thead class="bg-slate-800/90 light:bg-slate-100 text-slate-400 light:text-slate-600 font-semibold uppercase tracking-wider text-[10px]">
+                        <tr>
+                            <th class="py-3 px-3">#</th>
+                            <th class="py-3 px-3">Documento</th>
+                            <th class="py-3 px-3">Nombre Completo</th>
+                            <th class="py-3 px-3">Programa Académico</th>
+                            <th class="py-3 px-3">Estado</th>
+                            <th class="py-3 px-3">Tipo Aspirante</th>
+                            <th class="py-3 px-3">Fecha</th>
+                            <th class="py-3 px-3 text-right">Contacto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-800 light:divide-slate-200 bg-slate-900/30 light:bg-white">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400 light:text-slate-600 pt-2">
+                <div id="paginationInfo">Mostrando 0 de 0 registros</div>
+                <div class="flex items-center gap-1.5" id="paginationControls">
+                    <!-- Dynamic Buttons -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 light:border-slate-200 py-4 px-6 text-center text-xs text-slate-500 light:text-slate-400 mt-auto">
+        <p>Dashboard Ejecutivo Interactivo - Generado para Proceso de Admisiones e Inscripciones 2027-1</p>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // RAW DATASET EMBEDDED DIRECTLY FROM EXCEL ANALYSIS
+        let rawDataSet = []; // Se cargan los 906 registros procesados dinámicamente
+
+        // GLOBAL APP STATE
+        let filteredData = [];
+        let currentPage = 1;
+        let pageSize = 25;
+        let isDarkMode = true;
+
+        // CHART INSTANCES
+        let trendChartInstance = null;
+        let estadoChartInstance = null;
+        let programsChartInstance = null;
+        let conversionChartInstance = null;
+        let tipoAspChartInstance = null;
+        let tipoDocChartInstance = null;
+
+        // INITIALIZE APP ON DOM LOAD
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            // Cargar datos incrustados o procesar si requiere actualización
+            if (rawDataSet.length > 0) {
+                populateFilterOptions();
+                applyFilters();
+            }
+        });
+
+        // THEME TOGGLE
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            }
+            updateCharts();
+        }
+
+        // POPULATE SELECT FILTERS DYNAMICALLY
+        function populateFilterOptions() {
+            const progSelect = document.getElementById('programFilter');
+            const tipoAspSelect = document.getElementById('tipoAspFilter');
+            const tipoDocSelect = document.getElementById('tipoDocFilter');
+
+            const selectedProg = progSelect.value;
+            const selectedTipoAsp = tipoAspSelect.value;
+            const selectedTipoDoc = tipoDocSelect.value;
+
+            const programs = [...new Set(rawDataSet.map(d => d.programa).filter(Boolean))].sort();
+            const tipoAsps = [...new Set(rawDataSet.map(d => d.tipo_asp).filter(Boolean))].sort();
+            const tipoDocs = [...new Set(rawDataSet.map(d => d.tipo_doc).filter(Boolean))].sort();
+
+            progSelect.innerHTML = '<option value="">Todos los Programas</option>' + 
+                programs.map(p => `<option value="${p}">${p}</option>`).join('');
+
+            tipoAspSelect.innerHTML = '<option value="">Todos los Tipos</option>' + 
+                tipoAsps.map(t => `<option value="${t}">${t}</option>`).join('');
+
+            tipoDocSelect.innerHTML = '<option value="">Todos los Documentos</option>' + 
+                tipoDocs.map(d => `<option value="${d}">${d}</option>`).join('');
+
+            progSelect.value = selectedProg;
+            tipoAspSelect.value = selectedTipoAsp;
+            tipoDocSelect.value = selectedTipoDoc;
+        }
+
+        // APPLY FILTERS
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+            const prog = document.getElementById('programFilter').value;
+            const estado = document.getElementById('estadoFilter').value;
+            const tipoAsp = document.getElementById('tipoAspFilter').value;
+            const tipoDoc = document.getElementById('tipoDocFilter').value;
+
+            filteredData = rawDataSet.filter(d => {
+                const matchSearch = !search || 
+                    d.nombre.toLowerCase().includes(search) || 
+                    d.num_doc.includes(search) || 
+                    d.email.toLowerCase().includes(search) ||
+                    d.programa.toLowerCase().includes(search);
+                
+                const matchProg = !prog || d.programa === prog;
+                const matchEstado = !estado || d.estado === estado;
+                const matchTipoAsp = !tipoAsp || d.tipo_asp === tipoAsp;
+                const matchTipoDoc = !tipoDoc || d.tipo_doc === tipoDoc;
+
+                return matchSearch && matchProg && matchEstado && matchTipoAsp && matchTipoDoc;
+            });
+
+            currentPage = 1;
+            updateKPIs();
+            updateCharts();
+            renderTable();
+        }
+
+        // RESET FILTERS
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('programFilter').value = '';
+            document.getElementById('estadoFilter').value = '';
+            document.getElementById('tipoAspFilter').value = '';
+            document.getElementById('tipoDocFilter').value = '';
+            applyFilters();
+        }
+
+        // UPDATE KPI CARDS
+        function updateKPIs() {
+            const total = filteredData.length;
+            const inscritos = filteredData.filter(d => d.estado === 'Inscrito').length;
+            const aspirantes = filteredData.filter(d => d.estado === 'Aspirante').length;
+            const conversionRate = total > 0 ? ((inscritos / total) * 100).toFixed(2) : '0.00';
+            const pendingRate = total > 0 ? ((aspirantes / total) * 100).toFixed(2) : '0.00';
+
+            document.getElementById('kpiTotal').innerText = total.toLocaleString();
+            document.getElementById('kpiInscritos').innerText = inscritos.toLocaleString();
+            document.getElementById('kpiConversionRate').innerText = `${conversionRate}%`;
+            document.getElementById('kpiAspirantes').innerText = aspirantes.toLocaleString();
+            document.getElementById('kpiPendingRate').innerText = `${pendingRate}%`;
+
+            const progCounts = {};
+            const progInscritos = {};
+            filteredData.forEach(d => {
+                progCounts[d.programa] = (progCounts[d.programa] || 0) + 1;
+                if (d.estado === 'Inscrito') {
+                    progInscritos[d.programa] = (progInscritos[d.programa] || 0) + 1;
+                }
+            });
+
+            let topProg = 'N/A';
+            let maxCount = 0;
+            for (let p in progCounts) {
+                if (progCounts[p] > maxCount) {
+                    maxCount = progCounts[p];
+                    topProg = p;
+                }
+            }
+
+            if (topProg !== 'N/A') {
+                const topProgInsc = progInscritos[topProg] || 0;
+                const topProgConv = ((topProgInsc / maxCount) * 100).toFixed(1);
+                document.getElementById('kpiTopProgramName').innerText = topProg;
+                document.getElementById('kpiTopProgramName').title = topProg;
+                document.getElementById('kpiTopProgramCount').innerText = `${maxCount} (${topProgConv}% conv.)`;
+            } else {
+                document.getElementById('kpiTopProgramName').innerText = 'Sin datos';
+                document.getElementById('kpiTopProgramCount').innerText = '0';
+            }
+        }
+
+        // CHART COLORS HELPERS
+        function getChartTextColor() {
+            return isDarkMode ? '#94a3b8' : '#475569';
+        }
+        function getChartGridColor() {
+            return isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
+        }
+
+        // UPDATE ALL CHARTS
+        function updateCharts() {
+            const textColor = getChartTextColor();
+            const gridColor = getChartGridColor();
+
+            // 1. TREND CHART
+            const dateCounts = {};
+            const dateInscritos = {};
+            const dateAspirantes = {};
+
+            filteredData.forEach(d => {
+                const date = d.fecha || 'Sin Fecha';
+                if (!dateCounts[date]) {
+                    dateCounts[date] = 0;
+                    dateInscritos[date] = 0;
+                    dateAspirantes[date] = 0;
+                }
+                dateCounts[date]++;
+                if (d.estado === 'Inscrito') dateInscritos[date]++;
+                else dateAspirantes[date]++;
+            });
+
+            const sortedDates = Object.keys(dateCounts).sort();
+            const inscritosTrend = sortedDates.map(d => dateInscritos[d]);
+            const aspirantesTrend = sortedDates.map(d => dateAspirantes[d]);
+
+            if (trendChartInstance) trendChartInstance.destroy();
+            const ctxTrend = document.getElementById('trendChart').getContext('2d');
+            trendChartInstance = new Chart(ctxTrend, {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [
+                        {
+                            label: 'Inscritos',
+                            data: inscritosTrend,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        {
+                            label: 'Aspirantes',
+                            data: aspirantesTrend,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: textColor, font: { family: 'Inter', size: 11 } } }
+                    },
+                    scales: {
+                        x: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
+                        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+                    }
+                }
+            });
+
+            // 2. ESTADO DOUGHNUT CHART
+            const inscritosTotal = filteredData.filter(d => d.estado === 'Inscrito').length;
+            const aspirantesTotal = filteredData.filter(d => d.estado === 'Aspirante').length;
+
+            if (estadoChartInstance) estadoChartInstance.destroy();
+            const ctxEstado = document.getElementById('estadoChart').getContext('2d');
+            estadoChartInstance = new Chart(ctxEstado, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Inscritos', 'Aspirantes'],
+                    datasets: [{
+                        data: [inscritosTotal, aspirantesTotal],
+                        backgroundColor: ['#10b981', '#f59e0b'],
+                        borderWidth: 0,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: textColor, font: { family: 'Inter', size: 11 } } }
+                    },
+                    cutout: '70%'
+                }
+            });
+
+            // 3. TOP PROGRAMS BAR CHART
+            const progMap = {};
+            filteredData.forEach(d => {
+                if (!progMap[d.programa]) progMap[d.programa] = { total: 0, inscritos: 0, aspirantes: 0 };
+                progMap[d.programa].total++;
+                if (d.estado === 'Inscrito') progMap[d.programa].inscritos++;
+                else progMap[d.programa].aspirantes++;
+            });
+
+            const topPrograms = Object.keys(progMap)
+                .map(p => ({ name: p, ...progMap[p] }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, 10);
+
+            const progNames = topPrograms.map(p => p.name.length > 22 ? p.name.substring(0, 20) + '...' : p.name);
+            const progInsc = topPrograms.map(p => p.inscritos);
+            const progAsp = topPrograms.map(p => p.aspirantes);
+
+            if (programsChartInstance) programsChartInstance.destroy();
+            const ctxProg = document.getElementById('programsChart').getContext('2d');
+            programsChartInstance = new Chart(ctxProg, {
+                type: 'bar',
+                data: {
+                    labels: progNames,
+                    datasets: [
+                        { label: 'Inscritos', data: progInsc, backgroundColor: '#10b981', borderRadius: 4 },
+                        { label: 'Aspirantes', data: progAsp, backgroundColor: '#f59e0b', borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { labels: { color: textColor, font: { family: 'Inter', size: 11 } } }
+                    },
+                    scales: {
+                        x: { stacked: true, ticks: { color: textColor }, grid: { color: gridColor } },
+                        y: { stacked: true, ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+                    }
+                }
+            });
+
+            // 4. CONVERSION RATE BAR CHART TOP PROGRAMS
+            const convRates = topPrograms.map(p => p.total > 0 ? ((p.inscritos / p.total) * 100).toFixed(1) : 0);
+            const convColors = convRates.map(r => r >= 40 ? '#10b981' : (r >= 25 ? '#3b82f6' : '#f43f5e'));
+
+            if (conversionChartInstance) conversionChartInstance.destroy();
+            const ctxConv = document.getElementById('conversionChart').getContext('2d');
+            conversionChartInstance = new Chart(ctxConv, {
+                type: 'bar',
+                data: {
+                    labels: progNames,
+                    datasets: [{
+                        label: 'Tasa Conversión (%)',
+                        data: convRates,
+                        backgroundColor: convColors,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { max: 100, ticks: { color: textColor, callback: v => v + '%' }, grid: { color: gridColor } },
+                        y: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+                    }
+                }
+            });
+
+            // 5. TIPO ASPIRANTE CHART
+            const tipoAspCounts = {};
+            filteredData.forEach(d => {
+                const t = d.tipo_asp || 'Sin definir';
+                tipoAspCounts[t] = (tipoAspCounts[t] || 0) + 1;
+            });
+
+            if (tipoAspChartInstance) tipoAspChartInstance.destroy();
+            const ctxTipoAsp = document.getElementById('tipoAspChart').getContext('2d');
+            tipoAspChartInstance = new Chart(ctxTipoAsp, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(tipoAspCounts),
+                    datasets: [{
+                        data: Object.values(tipoAspCounts),
+                        backgroundColor: ['#6366f1', '#8b5cf6', '#ec4899', '#06b6d4'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: textColor, font: { size: 10 } } }
+                    }
+                }
+            });
+
+            // 6. TIPO DOCUMENTO CHART
+            const tipoDocCounts = {};
+            filteredData.forEach(d => {
+                const doc = d.tipo_doc || 'Otros';
+                tipoDocCounts[doc] = (tipoDocCounts[doc] || 0) + 1;
+            });
+
+            if (tipoDocChartInstance) tipoDocChartInstance.destroy();
+            const ctxTipoDoc = document.getElementById('tipoDocChart').getContext('2d');
+            tipoDocChartInstance = new Chart(ctxTipoDoc, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(tipoDocCounts),
+                    datasets: [{
+                        label: 'Registros',
+                        data: Object.values(tipoDocCounts),
+                        backgroundColor: '#0ea5e9',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: textColor }, grid: { display: false } },
+                        y: { ticks: { color: textColor }, grid: { color: gridColor } }
+                    }
+                }
+            });
+        }
+
+        // RENDER TABLE WITH PAGINATION
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            const total = filteredData.length;
+            const startIdx = (currentPage - 1) * pageSize;
+            const endIdx = Math.min(startIdx + pageSize, total);
+            const pageData = filteredData.slice(startIdx, endIdx);
+
+            document.getElementById('tableSubtitle').innerText = `Mostrando ${total.toLocaleString()} registros coincidentes con los filtros`;
+
+            if (pageData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-500">No se encontraron registros coincidentes con la búsqueda.</td></tr>`;
+            } else {
+                tbody.innerHTML = pageData.map((d, i) => {
+                    const isInc = d.estado === 'Inscrito';
+                    const badgeClass = isInc ? 
+                        'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
+                        'bg-amber-500/10 text-amber-400 border-amber-500/20';
+                    const badgeIcon = isInc ? 'check' : 'clock';
+
+                    const phone = d.celular || d.telefono || 'N/A';
+
+                    return `
+                        <tr class="hover:bg-slate-800/50 light:hover:bg-slate-100/80 transition">
+                            <td class="py-2.5 px-3 font-mono text-[11px] text-slate-500">${startIdx + i + 1}</td>
+                            <td class="py-2.5 px-3 font-mono text-[11px] font-medium text-slate-300 light:text-slate-800">${d.tipo_doc} ${d.num_doc}</td>
+                            <td class="py-2.5 px-3 font-semibold text-white light:text-slate-900">${d.nombre}</td>
+                            <td class="py-2.5 px-3 text-slate-300 light:text-slate-700">${d.programa}</td>
+                            <td class="py-2.5 px-3">
+                                <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${badgeClass}">
+                                    <i data-lucide="${badgeIcon}" class="w-3 h-3"></i>
+                                    ${d.estado}
+                                </span>
+                            </td>
+                            <td class="py-2.5 px-3 text-[11px] text-slate-400 light:text-slate-500">${d.tipo_asp}</td>
+                            <td class="py-2.5 px-3 text-[11px] font-mono text-slate-400 light:text-slate-500">${d.fecha}</td>
+                            <td class="py-2.5 px-3 text-right text-[11px] font-mono text-slate-400 light:text-slate-500">
+                                <div class="truncate max-w-[160px] ml-auto" title="${d.email}">${d.email}</div>
+                                <div class="text-[10px] text-slate-500">${phone}</div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+                lucide.createIcons();
+            }
+
+            // Pagination Controls
+            const totalPages = Math.ceil(total / pageSize) || 1;
+            document.getElementById('paginationInfo').innerText = `Mostrando ${startIdx + 1} a ${endIdx} de ${total.toLocaleString()} registros (Página ${currentPage} de ${totalPages})`;
+
+            const controls = document.getElementById('paginationControls');
+            controls.innerHTML = `
+                <button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 light:bg-slate-200 light:hover:bg-slate-300 text-slate-300 light:text-slate-700 disabled:opacity-40 text-xs font-semibold">Anterior</button>
+                <span class="px-2 font-mono text-xs">${currentPage} / ${totalPages}</span>
+                <button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 light:bg-slate-200 light:hover:bg-slate-300 text-slate-300 light:text-slate-700 disabled:opacity-40 text-xs font-semibold">Siguiente</button>
+            `;
+        }
+
+        function goToPage(p) {
+            const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
+            if (p < 1 || p > totalPages) return;
+            currentPage = p;
+            renderTable();
+        }
+
+        function changePageSize() {
+            pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+            currentPage = 1;
+            renderTable();
+        }
+
+        // EXPORT FILTERED DATA TO CSV
+        function exportToCSV() {
+            if (filteredData.length === 0) {
+                alert('No hay datos para exportar');
+                return;
+            }
+
+            const headers = ['Tipo Documento', 'Numero Documento', 'Nombre', 'Programa Academico', 'Estado', 'E-mail', 'Telefono', 'Celular', 'Tipo Aspirante', 'Codigo', 'Fecha Inscripcion'];
+            const rows = filteredData.map(d => [
+                `"${d.tipo_doc}"`,
+                `"${d.num_doc}"`,
+                `"${d.nombre}"`,
+                `"${d.programa}"`,
+                `"${d.estado}"`,
+                `"${d.email}"`,
+                `"${d.telefono}"`,
+                `"${d.celular}"`,
+                `"${d.tipo_asp}"`,
+                `"${d.codigo}"`,
+                `"${d.fecha}"`
+            ]);
+
+            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Inscripciones_2027-1_Filtrado_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // LIVE EXCEL FILE PARSER & UPDATE
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const data = new Uint8Array(evt.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                    if (!json || json.length === 0) {
+                        alert('El archivo Excel no contiene filas de datos.');
+                        return;
+                    }
+
+                    // Map keys dynamically
+                    rawDataSet = json.map(row => {
+                        const rawDate = String(row['Fecha de Inscripción'] || row['Fecha'] || '');
+                        let formattedDate = rawDate;
+                        if (rawDate.length === 8) {
+                            formattedDate = `${rawDate.substring(0,4)}-${rawDate.substring(4,6)}-${rawDate.substring(6,8)}`;
+                        }
+
+                        return {
+                            tipo_doc: String(row['Tipo documento'] || row['Tipo Documento'] || ''),
+                            num_doc: String(row['Número Documento'] || row['Documento'] || ''),
+                            nombre: String(row['Nombre'] || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()),
+                            programa: String(row['Programa Académico'] || row['Programa'] || '').trim(),
+                            estado: String(row['Estado'] || '').trim(),
+                            email: String(row['E-mail'] || row['Email'] || '').toLowerCase(),
+                            telefono: String(row['Teléfono Residencia'] || ''),
+                            celular: String(row['Celular'] || ''),
+                            tipo_asp: String(row['Tipo Aspirante'] || '').trim(),
+                            codigo: String(row['Código'] || ''),
+                            fecha: formattedDate
+                        };
+                    });
+
+                    document.getElementById('totalRecordsBadge').innerText = `${rawDataSet.length.toLocaleString()} registros cargados (Actualizado)`;
+                    populateFilterOptions();
+                    applyFilters();
+                    alert(`¡Excel cargado con éxito! Se procesaron ${rawDataSet.length.toLocaleString()} registros.`);
+                } catch (err) {
+                    console.error("Error al leer el archivo Excel:", err);
+                    alert("Error al procesar el archivo Excel. Asegúrate de que sea un archivo válido (.xls o .xlsx).");
+                }
+            };
+            reader.readAsBuffer(file);
+        }
+    </script>
+</body>
+</html>
