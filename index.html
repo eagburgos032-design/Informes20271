@@ -297,256 +297,309 @@
     </main>
 
     <!-- JavaScript Application Logic -->
-    <script>
-        let rawDataSet = [];
-        let filteredData = [];
-        let currentPage = 1;
-        let pageSize = 25;
-        let isDarkMode = true;
+   <script>
+    // -------------------------------------------------------------
+    // CONFIGURACIÓN: Pega aquí la URL pública en formato CSV
+    // -------------------------------------------------------------
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTHdUTxd1MB29BoavPHcYGLqCpZCenFvhPUzdgMynUIeZMFltkfc4XwOEeiEKWoxwENPryU8vAngO2F/pub?output=csv";
 
-        let trendChartInstance = null;
-        let estadoChartInstance = null;
-        let programsChartInstance = null;
-        let conversionChartInstance = null;
+    // ESTADO GLOBAL DE LA APLICACIÓN
+    let rawDataSet = [];
+    let filteredData = [];
+    let currentPage = 1;
+    let pageSize = 25;
+    let isDarkMode = true;
 
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
+    // INSTANCIAS DE GRÁFICOS
+    let trendChartInstance = null;
+    let estadoChartInstance = null;
+    let programsChartInstance = null;
+    let conversionChartInstance = null;
+
+    // INICIALIZACIÓN
+    document.addEventListener('DOMContentLoaded', () => {
+        lucide.createIcons();
+
+        // Vincular el cargador manual de archivos locales (opción secundaria)
+        const fileInput = document.getElementById('excelInput');
+        if (fileInput) {
+            fileInput.addEventListener('change', handleFileUpload);
+        }
+
+        // Cargar datos automáticamente desde la nube
+        loadLiveDataFromUrl();
+    });
+
+    // CAMBIO DE TEMA (DARK / LIGHT)
+    function toggleTheme() {
+        isDarkMode = !isDarkMode;
+        document.documentElement.classList.toggle('dark', isDarkMode);
+        document.documentElement.classList.toggle('light', !isDarkMode);
+        updateCharts();
+    }
+
+    // CARGA AUTOMÁTICA DESDE GOOGLE SHEETS / ONEDRIVE VIA FETCH()
+    async function loadLiveDataFromUrl() {
+        const badge = document.getElementById('totalRecordsBadge');
+        if (badge) {
+            badge.innerText = "Cargando datos en tiempo real...";
+            badge.className = "text-amber-400 font-medium animate-pulse";
+        }
+
+        try {
+            const response = await fetch(SHEET_CSV_URL);
+            if (!response.ok) throw new Error("No se pudo obtener el archivo desde la URL.");
+
+            const csvText = await response.text();
             
-            // Vincular evento de carga de archivo
-            const fileInput = document.getElementById('excelInput');
-            if (fileInput) {
-                fileInput.addEventListener('change', handleFileUpload);
+            // Usar SheetJS para parsear el texto CSV directamente
+            const workbook = XLSX.read(csvText, { type: 'string' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+            processJsonData(json, "Nube (Sincronizado)");
+        } catch (error) {
+            console.error("Error cargando desde la URL:", error);
+            if (badge) {
+                badge.innerText = "Error al sincronizar. Carga manual disponible.";
+                badge.className = "text-rose-400 font-medium";
+            }
+        }
+    }
+
+    // CARGA MANUAL DE EXCEL LOCAL
+    function handleFileUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                processJsonData(json, "Archivo Local");
+                alert(`¡Excel cargado con éxito! Se procesaron ${rawDataSet.length.toLocaleString()} registros.`);
+            } catch (err) {
+                console.error("Error procesando Excel local:", err);
+                alert("Error al procesar el archivo Excel seleccionado.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // PROCESAMIENTO Y MAPEO DE DATOS UNIFICADO
+    function processJsonData(json, origen) {
+        if (!json || json.length === 0) return;
+
+        rawDataSet = json.map(row => {
+            const rawDate = String(row['Fecha de Inscripción'] || row['Fecha'] || '');
+            let formattedDate = rawDate;
+            if (rawDate.length === 8 && !isNaN(rawDate)) {
+                formattedDate = `${rawDate.substring(0,4)}-${rawDate.substring(4,6)}-${rawDate.substring(6,8)}`;
+            }
+
+            return {
+                tipo_doc: String(row['Tipo documento'] || row['Tipo Documento'] || ''),
+                num_doc: String(row['Número Documento'] || row['Documento'] || ''),
+                nombre: String(row['Nombre'] || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()),
+                programa: String(row['Programa Académico'] || row['Programa'] || '').trim(),
+                estado: String(row['Estado'] || '').trim(),
+                email: String(row['E-mail'] || row['Email'] || '').toLowerCase(),
+                telefono: String(row['Teléfono Residencia'] || ''),
+                celular: String(row['Celular'] || ''),
+                tipo_asp: String(row['Tipo Aspirante'] || '').trim(),
+                codigo: String(row['Código'] || ''),
+                fecha: formattedDate
+            };
+        });
+
+        const badge = document.getElementById('totalRecordsBadge');
+        if (badge) {
+            badge.innerText = `${rawDataSet.length.toLocaleString()} registros cargados (${origen})`;
+            badge.className = "text-emerald-400 font-medium";
+        }
+
+        populateFilterOptions();
+        applyFilters();
+    }
+
+    // POBLAR FILTROS DINÁMICOS
+    function populateFilterOptions() {
+        const progSelect = document.getElementById('programFilter');
+        const tipoAspSelect = document.getElementById('tipoAspFilter');
+        const tipoDocSelect = document.getElementById('tipoDocFilter');
+
+        const programs = [...new Set(rawDataSet.map(d => d.programa).filter(Boolean))].sort();
+        const tipoAsps = [...new Set(rawDataSet.map(d => d.tipo_asp).filter(Boolean))].sort();
+        const tipoDocs = [...new Set(rawDataSet.map(d => d.tipo_doc).filter(Boolean))].sort();
+
+        progSelect.innerHTML = '<option value="">Todos los Programas</option>' + programs.map(p => `<option value="${p}">${p}</option>`).join('');
+        tipoAspSelect.innerHTML = '<option value="">Todos los Tipos</option>' + tipoAsps.map(t => `<option value="${t}">${t}</option>`).join('');
+        tipoDocSelect.innerHTML = '<option value="">Todos los Documentos</option>' + tipoDocs.map(d => `<option value="${d}">${d}</option>`).join('');
+    }
+
+    // APLICAR FILTROS
+    function applyFilters() {
+        const search = document.getElementById('searchInput').value.toLowerCase().trim();
+        const prog = document.getElementById('programFilter').value;
+        const estado = document.getElementById('estadoFilter').value;
+        const tipoAsp = document.getElementById('tipoAspFilter').value;
+        const tipoDoc = document.getElementById('tipoDocFilter').value;
+
+        filteredData = rawDataSet.filter(d => {
+            const matchSearch = !search || d.nombre.toLowerCase().includes(search) || d.num_doc.includes(search) || d.email.toLowerCase().includes(search);
+            const matchProg = !prog || d.programa === prog;
+            const matchEstado = !estado || d.estado === estado;
+            const matchTipoAsp = !tipoAsp || d.tipo_asp === tipoAsp;
+            const matchTipoDoc = !tipoDoc || d.tipo_doc === tipoDoc;
+            return matchSearch && matchProg && matchEstado && matchTipoAsp && matchTipoDoc;
+        });
+
+        currentPage = 1;
+        updateKPIs();
+        updateCharts();
+        renderTable();
+    }
+
+    // RESTABLECER FILTROS
+    function resetFilters() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('programFilter').value = '';
+        document.getElementById('estadoFilter').value = '';
+        document.getElementById('tipoAspFilter').value = '';
+        document.getElementById('tipoDocFilter').value = '';
+        applyFilters();
+    }
+
+    // ACTUALIZAR CARDS KPI
+    function updateKPIs() {
+        const total = filteredData.length;
+        const inscritos = filteredData.filter(d => d.estado === 'Inscrito').length;
+        const aspirantes = filteredData.filter(d => d.estado === 'Aspirante').length;
+
+        document.getElementById('kpiTotal').innerText = total.toLocaleString();
+        document.getElementById('kpiInscritos').innerText = inscritos.toLocaleString();
+        document.getElementById('kpiAspirantes').innerText = aspirantes.toLocaleString();
+
+        document.getElementById('kpiConversionRate').innerText = total > 0 ? `${((inscritos / total) * 100).toFixed(1)}%` : '0.0%';
+        document.getElementById('kpiPendingRate').innerText = total > 0 ? `${((aspirantes / total) * 100).toFixed(1)}%` : '0.0%';
+    }
+
+    // ACTUALIZAR GRÁFICOS
+    function updateCharts() {
+        const textColor = isDarkMode ? '#94a3b8' : '#475569';
+        const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
+
+        // Line Chart - Evolución Diaria
+        const dates = {};
+        filteredData.forEach(d => {
+            if (d.fecha) dates[d.fecha] = (dates[d.fecha] || 0) + 1;
+        });
+        const sortedDates = Object.keys(dates).sort();
+
+        if (trendChartInstance) trendChartInstance.destroy();
+        trendChartInstance = new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: sortedDates,
+                datasets: [{
+                    label: 'Registros',
+                    data: sortedDates.map(d => dates[d]),
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: textColor }, grid: { color: gridColor } },
+                    y: { ticks: { color: textColor }, grid: { color: gridColor } }
+                }
             }
         });
 
-        function toggleTheme() {
-            isDarkMode = !isDarkMode;
-            document.documentElement.classList.toggle('dark', isDarkMode);
-            document.documentElement.classList.toggle('light', !isDarkMode);
-            updateCharts();
-        }
+        // Doughnut Chart - Estado
+        const inscritos = filteredData.filter(d => d.estado === 'Inscrito').length;
+        const aspirantes = filteredData.filter(d => d.estado === 'Aspirante').length;
 
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                try {
-                    const data = new Uint8Array(evt.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-                    if (!json || json.length === 0) {
-                        alert('El archivo Excel no contiene filas de datos.');
-                        return;
-                    }
-
-                    rawDataSet = json.map(row => {
-                        const rawDate = String(row['Fecha de Inscripción'] || row['Fecha'] || '');
-                        let formattedDate = rawDate;
-                        if (rawDate.length === 8 && !isNaN(rawDate)) {
-                            formattedDate = `${rawDate.substring(0,4)}-${rawDate.substring(4,6)}-${rawDate.substring(6,8)}`;
-                        }
-
-                        return {
-                            tipo_doc: String(row['Tipo documento'] || row['Tipo Documento'] || ''),
-                            num_doc: String(row['Número Documento'] || row['Documento'] || ''),
-                            nombre: String(row['Nombre'] || '').toLowerCase().replace(/\b\w/g, c => c.toUpperCase()),
-                            programa: String(row['Programa Académico'] || row['Programa'] || '').trim(),
-                            estado: String(row['Estado'] || '').trim(),
-                            email: String(row['E-mail'] || row['Email'] || '').toLowerCase(),
-                            telefono: String(row['Teléfono Residencia'] || ''),
-                            celular: String(row['Celular'] || ''),
-                            tipo_asp: String(row['Tipo Aspirante'] || '').trim(),
-                            codigo: String(row['Código'] || ''),
-                            fecha: formattedDate
-                        };
-                    });
-
-                    document.getElementById('totalRecordsBadge').innerText = `${rawDataSet.length.toLocaleString()} registros cargados`;
-                    document.getElementById('totalRecordsBadge').className = "text-emerald-400 font-medium";
-                    
-                    populateFilterOptions();
-                    applyFilters();
-                    alert(`¡Excel cargado con éxito! Se procesaron ${rawDataSet.length.toLocaleString()} registros.`);
-                } catch (err) {
-                    console.error("Error al leer Excel:", err);
-                    alert("Error al procesar el archivo Excel. Asegúrate de seleccionar un archivo válido (.xlsx o .xls).");
-                }
-            };
-            
-            // Método estándar correcto de JavaScript para ArrayBuffer
-            reader.readAsArrayBuffer(file);
-        }
-
-        function populateFilterOptions() {
-            const progSelect = document.getElementById('programFilter');
-            const tipoAspSelect = document.getElementById('tipoAspFilter');
-            const tipoDocSelect = document.getElementById('tipoDocFilter');
-
-            const programs = [...new Set(rawDataSet.map(d => d.programa).filter(Boolean))].sort();
-            const tipoAsps = [...new Set(rawDataSet.map(d => d.tipo_asp).filter(Boolean))].sort();
-            const tipoDocs = [...new Set(rawDataSet.map(d => d.tipo_doc).filter(Boolean))].sort();
-
-            progSelect.innerHTML = '<option value="">Todos los Programas</option>' + programs.map(p => `<option value="${p}">${p}</option>`).join('');
-            tipoAspSelect.innerHTML = '<option value="">Todos los Tipos</option>' + tipoAsps.map(t => `<option value="${t}">${t}</option>`).join('');
-            tipoDocSelect.innerHTML = '<option value="">Todos los Documentos</option>' + tipoDocs.map(d => `<option value="${d}">${d}</option>`).join('');
-        }
-
-        function applyFilters() {
-            const search = document.getElementById('searchInput').value.toLowerCase().trim();
-            const prog = document.getElementById('programFilter').value;
-            const estado = document.getElementById('estadoFilter').value;
-            const tipoAsp = document.getElementById('tipoAspFilter').value;
-            const tipoDoc = document.getElementById('tipoDocFilter').value;
-
-            filteredData = rawDataSet.filter(d => {
-                const matchSearch = !search || d.nombre.toLowerCase().includes(search) || d.num_doc.includes(search) || d.email.toLowerCase().includes(search);
-                const matchProg = !prog || d.programa === prog;
-                const matchEstado = !estado || d.estado === estado;
-                const matchTipoAsp = !tipoAsp || d.tipo_asp === tipoAsp;
-                const matchTipoDoc = !tipoDoc || d.tipo_doc === tipoDoc;
-                return matchSearch && matchProg && matchEstado && matchTipoAsp && matchTipoDoc;
-            });
-
-            currentPage = 1;
-            updateKPIs();
-            updateCharts();
-            renderTable();
-        }
-
-        function resetFilters() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('programFilter').value = '';
-            document.getElementById('estadoFilter').value = '';
-            document.getElementById('tipoAspFilter').value = '';
-            document.getElementById('tipoDocFilter').value = '';
-            applyFilters();
-        }
-
-        function updateKPIs() {
-            const total = filteredData.length;
-            const inscritos = filteredData.filter(d => d.estado === 'Inscrito').length;
-            const aspirantes = filteredData.filter(d => d.estado === 'Aspirante').length;
-
-            document.getElementById('kpiTotal').innerText = total.toLocaleString();
-            document.getElementById('kpiInscritos').innerText = inscritos.toLocaleString();
-            document.getElementById('kpiAspirantes').innerText = aspirantes.toLocaleString();
-
-            document.getElementById('kpiConversionRate').innerText = total > 0 ? `${((inscritos / total) * 100).toFixed(1)}%` : '0.0%';
-            document.getElementById('kpiPendingRate').innerText = total > 0 ? `${((aspirantes / total) * 100).toFixed(1)}%` : '0.0%';
-        }
-
-        function updateCharts() {
-            const textColor = isDarkMode ? '#94a3b8' : '#475569';
-            const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
-
-            // 1. Trend Chart
-            const dates = {};
-            filteredData.forEach(d => {
-                if (d.fecha) dates[d.fecha] = (dates[d.fecha] || 0) + 1;
-            });
-            const sortedDates = Object.keys(dates).sort();
-
-            if (trendChartInstance) trendChartInstance.destroy();
-            trendChartInstance = new Chart(document.getElementById('trendChart'), {
-                type: 'line',
-                data: {
-                    labels: sortedDates,
-                    datasets: [{
-                        label: 'Registros',
-                        data: sortedDates.map(d => dates[d]),
-                        borderColor: '#6366f1',
-                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { ticks: { color: textColor }, grid: { color: gridColor } },
-                        y: { ticks: { color: textColor }, grid: { color: gridColor } }
-                    }
-                }
-            });
-
-            // 2. Estado Chart
-            const inscritos = filteredData.filter(d => d.estado === 'Inscrito').length;
-            const aspirantes = filteredData.filter(d => d.estado === 'Aspirante').length;
-
-            if (estadoChartInstance) estadoChartInstance.destroy();
-            estadoChartInstance = new Chart(document.getElementById('estadoChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['Inscrito', 'Aspirante'],
-                    datasets: [{
-                        data: [inscritos, aspirantes],
-                        backgroundColor: ['#10b981', '#f59e0b']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { color: textColor } } }
-                }
-            });
-        }
-
-        function renderTable() {
-            const tbody = document.getElementById('tableBody');
-            const total = filteredData.length;
-            const startIdx = (currentPage - 1) * pageSize;
-            const pageData = filteredData.slice(startIdx, startIdx + pageSize);
-
-            if (pageData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-500">Carga un archivo Excel para visualizar los registros.</td></tr>`;
-                return;
+        if (estadoChartInstance) estadoChartInstance.destroy();
+        estadoChartInstance = new Chart(document.getElementById('estadoChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Inscrito', 'Aspirante'],
+                datasets: [{
+                    data: [inscritos, aspirantes],
+                    backgroundColor: ['#10b981', '#f59e0b']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { color: textColor } } }
             }
+        });
+    }
 
-            tbody.innerHTML = pageData.map((d, i) => `
-                <tr class="hover:bg-slate-800/50 light:hover:bg-slate-100 transition">
-                    <td class="py-2 px-3 font-mono text-slate-500">${startIdx + i + 1}</td>
-                    <td class="py-2 px-3 font-mono">${d.tipo_doc} ${d.num_doc}</td>
-                    <td class="py-2 px-3 font-semibold text-white light:text-slate-900">${d.nombre}</td>
-                    <td class="py-2 px-3">${d.programa}</td>
-                    <td class="py-2 px-3">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${d.estado === 'Inscrito' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}">
-                            ${d.estado}
-                        </span>
-                    </td>
-                    <td class="py-2 px-3">${d.tipo_asp}</td>
-                    <td class="py-2 px-3 font-mono">${d.fecha}</td>
-                    <td class="py-2 px-3 text-right font-mono">${d.email}</td>
-                </tr>
-            `).join('');
+    // RENDERIZAR TABLA DE DATOS
+    function renderTable() {
+        const tbody = document.getElementById('tableBody');
+        const total = filteredData.length;
+        const startIdx = (currentPage - 1) * pageSize;
+        const pageData = filteredData.slice(startIdx, startIdx + pageSize);
 
-            document.getElementById('paginationInfo').innerText = `Mostrando ${startIdx + 1} a ${Math.min(startIdx + pageSize, total)} de ${total} registros`;
+        if (pageData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-500">No hay datos disponibles para mostrar.</td></tr>`;
+            return;
         }
 
-        function changePageSize() {
-            pageSize = parseInt(document.getElementById('pageSizeSelect').value);
-            currentPage = 1;
-            renderTable();
-        }
+        tbody.innerHTML = pageData.map((d, i) => `
+            <tr class="hover:bg-slate-800/50 light:hover:bg-slate-100 transition">
+                <td class="py-2 px-3 font-mono text-slate-500">${startIdx + i + 1}</td>
+                <td class="py-2 px-3 font-mono">${d.tipo_doc} ${d.num_doc}</td>
+                <td class="py-2 px-3 font-semibold text-white light:text-slate-900">${d.nombre}</td>
+                <td class="py-2 px-3">${d.programa}</td>
+                <td class="py-2 px-3">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${d.estado === 'Inscrito' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}">
+                        ${d.estado}
+                    </span>
+                </td>
+                <td class="py-2 px-3">${d.tipo_asp}</td>
+                <td class="py-2 px-3 font-mono">${d.fecha}</td>
+                <td class="py-2 px-3 text-right font-mono">${d.email}</td>
+            </tr>
+        `).join('');
 
-        function exportToCSV() {
-            if (filteredData.length === 0) return alert('No hay datos cargados para exportar');
-            const headers = ['Tipo Doc', 'Documento', 'Nombre', 'Programa', 'Estado', 'Email', 'Fecha'];
-            const rows = filteredData.map(d => [`"${d.tipo_doc}"`, `"${d.num_doc}"`, `"${d.nombre}"`, `"${d.programa}"`, `"${d.estado}"`, `"${d.email}"`, `"${d.fecha}"`]);
-            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-            const link = document.createElement("a");
-            link.setAttribute("href", encodeURI(csvContent));
-            link.setAttribute("download", `Export_Dashboard.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    </script>
+        document.getElementById('paginationInfo').innerText = `Mostrando ${startIdx + 1} a ${Math.min(startIdx + pageSize, total)} de ${total} registros`;
+    }
+
+    function changePageSize() {
+        pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+        currentPage = 1;
+        renderTable();
+    }
+
+    // EXPORTAR A CSV
+    function exportToCSV() {
+        if (filteredData.length === 0) return alert('No hay datos cargados para exportar');
+        const headers = ['Tipo Doc', 'Documento', 'Nombre', 'Programa', 'Estado', 'Email', 'Fecha'];
+        const rows = filteredData.map(d => [`"${d.tipo_doc}"`, `"${d.num_doc}"`, `"${d.nombre}"`, `"${d.programa}"`, `"${d.estado}"`, `"${d.email}"`, `"${d.fecha}"`]);
+        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const link = document.createElement("a");
+        link.setAttribute("href", encodeURI(csvContent));
+        link.setAttribute("download", `Export_Dashboard.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
 </body>
 </html>
