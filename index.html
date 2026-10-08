@@ -576,8 +576,10 @@
                     </span>
                 </td>
                 <td class="py-2 px-3">${d.tipo_asp}</td>
-                <td class="py-2 px-3 font-mono">${d.fecha}</td>
-                <td class="py-2 px-3 text-right font-mono">${d.email}</td>
+                <td class="py-2 px-3 font-mono text-[11px]">${d.fecha}</td>
+                <td class="py-2 px-3 font-mono text-[11px] text-slate-400 light:text-slate-600">${d.email || 'N/A'}</td>
+                <td class="py-2 px-3 font-mono text-[11px] text-slate-400 light:text-slate-600">${d.telefono || 'N/A'}</td>
+                <td class="py-2 px-3 font-mono text-[11px] text-slate-300 light:text-slate-800 font-semibold">${d.celular || 'N/A'}</td>
             </tr>
         `).join('');
 
