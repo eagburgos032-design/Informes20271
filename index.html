@@ -558,12 +558,12 @@
         const total = filteredData.length;
         const startIdx = (currentPage - 1) * pageSize;
         const pageData = filteredData.slice(startIdx, startIdx + pageSize);
-
+    
         if (pageData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-500">No hay datos disponibles para mostrar.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-6 text-slate-500">No hay datos disponibles para mostrar.</td></tr>`;
             return;
         }
-
+    
         tbody.innerHTML = pageData.map((d, i) => `
             <tr class="hover:bg-slate-800/50 light:hover:bg-slate-100 transition">
                 <td class="py-2 px-3 font-mono text-slate-500">${startIdx + i + 1}</td>
@@ -582,7 +582,7 @@
                 <td class="py-2 px-3 font-mono text-[11px] text-slate-300 light:text-slate-800 font-semibold">${d.celular || 'N/A'}</td>
             </tr>
         `).join('');
-
+    
         document.getElementById('paginationInfo').innerText = `Mostrando ${startIdx + 1} a ${Math.min(startIdx + pageSize, total)} de ${total} registros`;
     }
 
